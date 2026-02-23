@@ -29,7 +29,7 @@ class Colors():
         }
 
     def get_rgb(self, color_name):
-        return self.rgb.get(color_name.lower().(255, 255, 255)
+        return self.rgb.get(color_name.lower(), (255, 255, 255))
 
     def color_text(self, text, color_name):
         color_code = self.colors_ascii.get(color_name.lower(), self.colors_ascii["reset"])
