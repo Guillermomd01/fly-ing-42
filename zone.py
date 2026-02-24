@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 from enum import Enum
 from drone import Drone
 import heapq
@@ -39,17 +39,17 @@ class Graph():
     contiene diccionarios de zonas, lista de drones
     y se encarga de ejecutar los turnos
     """
-    def __init__(self):
+    def __init__(self) -> None:
         self.zones: Dict[str, Zone] = {}
         self.adj: Dict[str, List[Connection]] = {}
         self.drones: List[Drone] = []
 
-    def add_zone(self, zone: Zone):
+    def add_zone(self, zone: Zone) -> None:
         self.zones[zone.name] = zone
         if zone.name not in self.adj:
             self.adj[zone.name] = []
 
-    def add_connection(self, zone_a: str, zone_b: str, capacity: int):
+    def add_connection(self, zone_a: str, zone_b: str, capacity: int) -> None:
         self.adj[zone_a].append(Connection(zone_b, capacity))
         self.adj[zone_b].append(Connection(zone_a, capacity))
 
@@ -59,13 +59,14 @@ class Graph():
         """
         Encuentra varias rutas alternativas para distribuir a la flota.
         """
-        all_paths = []
+        all_paths: list[list[str]] = []
         # Usamos un diccionario de penalizaciones temporales
-        penalties = {name: 1.0 for name in self.zones}
+        penalties: Dict[str, float] = {name: 1.0 for name in self.zones}
 
         for _ in range(max_paths):
             # Ejecutamos Dijkstra pasando las penalizaciones actuales
-            path = self.dijkstra_with_penalties(start, end, penalties)
+            path: list[str] = self.dijkstra_with_penalties(
+                start, end, penalties)
             if not path:
                 break
 
@@ -79,8 +80,9 @@ class Graph():
 
         return all_paths
 
-    def assign_drones_to_paths(self, drones: list, paths: list[list[str]],
-                               start_node: str):
+    def assign_drones_to_paths(self, drones: List[Drone],
+                               paths: list[list[str]],
+                               start_node: str) -> None:
         """
         Reparte los drones entre las rutas disponibles de forma equilibrada.
         """
@@ -100,13 +102,16 @@ class Graph():
         return 1  # Capacidad por defecto
 
     def dijkstra_with_penalties(self, start: str, end: str,
-                                penalties: dict) -> list[str]:
+                                penalties: Dict[str, float]
+                                ) -> list[str]:
         """Dijkstra que considera el tipo de zona
         y las penalizaciones de tráfico."""
-        distances = {name: float('inf') for name in self.zones}
+        distances: Dict[str, float] = {
+            name: float('inf') for name in self.zones}
         distances[start] = 0
-        previous = {name: None for name in self.zones}
-        pq = [(0, start)]
+        previous: Dict[str, Optional[str]] = {
+            name: None for name in self.zones}
+        pq: List[Tuple[float, str]] = [(0.0, start)]
 
         while pq:
             curr_dist, curr_name = heapq.heappop(pq)
@@ -136,8 +141,8 @@ class Graph():
                     previous[neighbor.name] = curr_name
                     heapq.heappush(pq, (new_dist, neighbor.name))
 
-        path = []
-        curr = end
+        path: list[str] = []
+        curr: Optional[str] = end
         while curr:
             path.append(curr)
             curr = previous[curr]

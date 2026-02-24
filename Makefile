@@ -5,7 +5,7 @@ PIP = $(VENV)/bin/pip
 MAIN = main.py
 CONFIG_FILE = maps/challenger/01_the_impossible_dream.txt
 REQUIREMENTS = requirements.txt
-FILES = drone.py parser.py simulation.py zone.py
+FILES = drone.py parser.py simulation.py zone.py visualizer.py utils.py
 
 all: banner install run
 

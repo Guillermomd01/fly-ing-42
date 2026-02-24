@@ -1,41 +1,45 @@
 from zone import Graph, TypeZone
 from utils import Colors
+from typing import List, Tuple, Dict, Any
+
 
 class Simulation:
     def __init__(self, color: Colors, graph: Graph, nb_drones: int,
-                 start: str, end: str):
-        self.color = color
-        self.graph = graph
-        self.nb_drones = nb_drones
-        self.start_node = start
-        self.end_node = end
-        self.drones_delivered = 0
-        self.drones = self.graph.drones
+                 start: str, end: str) -> None:
+        self.color: Colors = color
+        self.graph: Graph = graph
+        self.nb_drones: int = nb_drones
+        self.start_node: str = start
+        self.end_node: str = end
+        self.drones_delivered: int = 0
+        self.drones: List[Any] = self.graph.drones
 
-    def run(self):
+    def run(self) -> None:
         """Ejecuta el bucle principal de la simulación."""
-        moves_i = 0
+        moves_i: int = 0
         while self.drones_delivered < self.nb_drones:
-            turn_movements = []
+            turn_movements: List[str] = []
 
             # 1. Identificar movimientos para este turno
             # El scheduler decide qué drones se mueven basándose en capacidades
             moves = self.calculate_turn_moves()
             moves_i += 1
             for drone, target in moves:
-                zone_color = self.graph.zones[target].color  # Obtenemos el color (red, green, etc.)
-                
+                zone_color: str = self.graph.zones[target].color
+
                 if self.graph.zones[target].type == TypeZone.restricted:
                     if drone.state == "idle":
                         # Turno 1: Movimiento a conexión
-                        conn_name = f"{drone.current_zone}-{target}"
-                        move_str = f"D{drone.id}-{conn_name}"
-                        turn_movements.append(self.color.color_text(move_str, zone_color))
+                        conn_name: str = f"{drone.current_zone}-{target}"
+                        move_str: str = f"D{drone.id}-{conn_name}"
+                        turn_movements.append(
+                            self.color.color_text(move_str, zone_color))
                         drone.start_restricted_move(target)
                     else:
                         # Turno 2: Llegada a zona
                         move_str = f"D{drone.id}-{target}"
-                        turn_movements.append(self.color.color_text(move_str, zone_color))
+                        turn_movements.append(
+                            self.color.color_text(move_str, zone_color))
                         drone.complete_move()
                         if drone.current_zone == self.end_node:
                             drone.is_active = False
@@ -43,7 +47,8 @@ class Simulation:
                 else:
                     # Movimiento normal
                     move_str = f"D{drone.id}-{target}"
-                    turn_movements.append(self.color.color_text(move_str, zone_color))
+                    turn_movements.append(
+                        self.color.color_text(move_str, zone_color))
                     drone.move_to(target)
                     if drone.current_zone == self.end_node:
                         drone.is_active = False
@@ -54,18 +59,20 @@ class Simulation:
                 # por un espacio en una sola línea
                 print(" ".join(turn_movements))
                 print(moves_i)
-    def calculate_turn_moves(self):
+
+    def calculate_turn_moves(self) -> List[Tuple[Any, str]]:
         """
         Decide qué drones se mueven este
         turno respetando todas las capacidades.
         """
-        potential_moves = []
+        potential_moves: List[Tuple[Any, str]] = []
         # Usamos diccionarios temporales
         # para rastrear la ocupación EN ESTE TURNO
         # considerando los drones que entran y salen
-        current_zone_occupancy = {
+        current_zone_occupancy: Dict[str, int] = {
             name: z.real_drones for name, z in self.graph.zones.items()}
-        current_link_usage = {}  # (A, B) -> drones_usando_link
+        current_link_usage: Dict[Tuple[str, ...], int] = {}
+        # (A, B) -> drones_usando_link
 
         # 1. Priorizar drones: Los que ya están en
         # movimiento restringido DEBEN terminar
@@ -82,19 +89,20 @@ class Simulation:
             if not drone.is_active or drone.state == "moving_restricted":
                 continue
 
-            next_step = drone.get_next_path_step()
+            next_step: str = drone.get_next_path_step()
             if not next_step:
                 continue
 
             # Verificación de Capacidad de Zona
-            zone_aux = current_zone_occupancy[next_step]
+            zone_aux: int = current_zone_occupancy[next_step]
             if zone_aux >= self.graph.zones[next_step].max_drones:
                 # Espera estratégica si la zona está llena.
                 continue
 
             # Verificación de Capacidad de Link
-            link_key = tuple(sorted((drone.current_zone, next_step)))
-            link_cap = self.graph.get_link_capacity(
+            link_key: Tuple[str, ...] = tuple(
+                sorted((drone.current_zone, next_step)))
+            link_cap: int = self.graph.get_link_capacity(
                 drone.current_zone, next_step)
             if current_link_usage.get(link_key, 0) >= link_cap:
                 continue
