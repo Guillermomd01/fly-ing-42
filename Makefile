@@ -3,7 +3,7 @@ PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
 MAIN = main.py
-CONFIG_FILE = maps/hard/03_ultimate_challenge.txt
+CONFIG_FILE = maps/challenger/01_the_impossible_dream.txt
 REQUIREMENTS = requirements.txt
 FILES = drone.py parser.py simulation.py zone.py
 
