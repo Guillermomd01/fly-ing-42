@@ -5,18 +5,35 @@ from drone import Drone
 
 
 class Parser():
+    """Responsible for transforming raw map files
+    into a structured simulation environment.
+
+    This class acts as the 'world-builder,' surgically extracting
+    network topologies, drone fleet parameters, and metadata
+    to ensure a high-fidelity logistics model.
+    """
     def __init__(self, file_name: str) -> None:
+        """
+        Initializes the parser and triggers the automated
+        world-building sequence.
+        """
         self.file_name: str = file_name
         self.nb_drones: int = 0
         self.graph: Graph = Graph()
         self.start_node: str | None = None
         self.end_node: str | None = None
 
-        # Iniciamos el proceso de construcción del mundo
         self.parse()
 
     def _extract_metadata(self, line: str) -> Dict[str, str]:
-        """Extrae de forma quirúrgica los metadatos entre corchetes."""
+        """
+        Surgically extracts bracketed metadata to customize hub
+        and link attributes.
+
+        This method parses 'key=value' pairs within square brackets, allowing
+        for dynamic property assignment like zone types, colors,
+        and capacities.
+        """
         if "[" not in line or "]" not in line:
             return {}
 
@@ -24,7 +41,6 @@ class Parser():
         fin: int = line.find("]")
         content: str = line[inicio:fin]
 
-        # Convertimos 'key=value' en un diccionario real
         metadata: Dict[str, str] = {}
         for item in content.split():
             if "=" in item:
@@ -33,7 +49,13 @@ class Parser():
         return metadata
 
     def parse(self) -> None:
-        """Procesa el archivo línea a línea con auditoría de errores."""
+        """
+        Executes a rigorous line-by-line audit of the map file.
+
+        It identifies and dispatches commands for drone counts,
+        hub definitions, and network connections while filtering
+        comments and invalid entries.
+        """
         try:
             with open(self.file_name, 'r') as file:
                 for line_num, line in enumerate(file, 1):
@@ -41,21 +63,18 @@ class Parser():
                     if not line or line.startswith("#"):
                         continue
 
-                    # 1. Separación de componentes
                     if ":" not in line:
                         self._error("Necessary ':' ", line_num)
 
                     prefix, rest = line.split(":", 1)
                     prefix = prefix.strip()
 
-                    # Extraer metadatos y limpiar los datos base
                     metadata: Dict[str, str] = self._extract_metadata(rest)
                     pos_bracket: int = rest.find("[")
                     payload: str = rest[
                         :pos_bracket] if pos_bracket != -1 else rest
                     data_list: List[str] = payload.strip().split()
 
-                    # 2. Despachador de comandos (La lógica de Fly-in)
                     if prefix == "nb_drones":
                         self._handle_nb_drones(data_list, line_num)
 
@@ -65,7 +84,6 @@ class Parser():
                     elif prefix == "connection":
                         self._handle_connection(data_list, metadata, line_num)
 
-            # 3. Auditoría final de calidad
             self._final_check()
 
         except FileNotFoundError:
@@ -73,12 +91,17 @@ class Parser():
             sys.exit(1)
 
     def _handle_nb_drones(self, data: List[str], line_num: int) -> None:
+        """
+        Processes and validates the total drone count for the mission.
+
+        Initializes the fleet within the graph using a standardized
+        'waiting' state to prepare for strategic deployment.
+        """
         try:
             count: int = int(data[0])
             if count <= 0:
                 raise ValueError
             self.nb_drones = count
-            # Inicializamos la flota en el Graph
             self.graph.drones = [
                 Drone(id=i, mode="waiting", turns=0, turns_until_arrival=0)
                 for i in range(1, count + 1)]
@@ -97,7 +120,6 @@ class Parser():
         if "-" in name:
             self._error(f"Name zone invalid '{name}': not '-'", line_num)
 
-        # Mapeo de tipos de zona usando el Enum de zone.py
         type_mapping: Dict[str, TypeZone] = {
             "priority": TypeZone.priority,
             "restricted": TypeZone.restricted,
@@ -107,7 +129,6 @@ class Parser():
         z_type: TypeZone = type_mapping.get(
             meta.get("zone", "normal"), TypeZone.normal)
 
-        # Creación del objeto Zone de alta precisión
         new_zone: Zone = Zone(
             coords=(int(x), int(y)),
             name=name,
@@ -119,7 +140,6 @@ class Parser():
 
         self.graph.add_zone(new_zone)
 
-        # Registro de puntos críticos de la red
         if prefix == "start_hub":
             if self.start_node:
                 self._error("Only one a start_hub", line_num)
@@ -132,6 +152,12 @@ class Parser():
     def _handle_connection(self, data: List[str],
                            meta: Dict[str, str],
                            line_num: int) -> None:
+        """
+        Establishes bidirectional flight corridors between hubs.
+
+        Configures the 'max_link_capacity' to ensure the simulation
+        respects the physical flow limits of the network.
+        """
         if not data or "-" not in data[0]:
             self._error("Invalid format (A-B)", line_num)
 
@@ -143,21 +169,26 @@ class Parser():
                 f"Conexion failed: ({z1} or {z2}) dosen't exist", line_num)
 
         capacity: int = int(meta.get("max_link_capacity", 1))
-        # Añadimos la conexión bidireccional al grafo
         self.graph.add_connection(z1, z2, capacity)
 
     def _final_check(self) -> None:
-        """Verifica que el ecosistema Fly-in esté listo para operar."""
+        """
+        Performs a final safety audit to verify simulation readiness.
+
+        Ensures that both entry and exit hubs are defined and
+        that the drone fleet is properly registered before launch.
+        """
         if not self.start_node or not self.end_node:
             print("Error:  'start_hub' and 'end_hub'.")
             sys.exit(1)
         if self.nb_drones <= 0:
             print("Error: There are not drones for missioon.")
             sys.exit(1)
-        print(
-            f"Launch ready: {len(self.graph.zones)} "
-            f"loaded zones and {self.nb_drones} drons waiting.")
 
     def _error(self, message: str, line_num: int) -> Any:
+        """
+        Centralized error reporter that terminates
+        the process on critical failures.
+        """
         print(f"Error in line {line_num}: {message}")
         sys.exit(1)

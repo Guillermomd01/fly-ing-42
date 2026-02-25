@@ -5,6 +5,15 @@ import heapq
 
 
 class TypeZone(Enum):
+    """
+    Categorizes zones based on their operational impact on drone navigation.
+
+    Attributes:
+        priority: Reduced cost zones that accelerate transit.
+        normal: Standard zones with base movement costs.
+        restricted: High-security zones requiring additional processing turns.
+        blocked: No-fly zones that are completely inaccessible.
+    """
     priority = 1
     normal = 2
     restricted = 3
@@ -12,10 +21,20 @@ class TypeZone(Enum):
 
 
 class Zone():
+    """
+    Represents a resource-constrained hub within the flight network.
+
+    This class manages the physical and logical properties of a zone,
+    including its geographic location and drone occupancy limits.
+    """
     def __init__(self, coords: tuple[int, int],
                  name: str, color: str,
                  type_zone: TypeZone, max_drones: int,
                  real_drones: int) -> None:
+        """
+        Initializes a hub with its spatial coordinates
+        and operational constraints.
+        """
         self.coords = coords
         self.name = name
         self.color = color
@@ -24,11 +43,25 @@ class Zone():
         self.real_drones = real_drones
 
     def is_accesible(self) -> bool:
+        """
+        Determines if the zone is available
+        for entry based on its TypeZone.
+        """
         return self.type != TypeZone.blocked
 
 
 class Connection():
+    """
+    Represents a high-throughput link between two flight hubs.
+
+    Manages the traffic flow constraints to prevent network
+    congestion.
+    """
     def __init__(self, target_zone: str, max_capacity: int) -> None:
+        """
+        Defines a connection path towards a target
+        destination with a specific capacity.
+        """
         self.target_zone = target_zone
         self.max_capacity = max_capacity
         self.current_flow = 0
@@ -36,20 +69,34 @@ class Connection():
 
 class Graph():
     """
-    contiene diccionarios de zonas, lista de drones
-    y se encarga de ejecutar los turnos
+    The central intelligence engine that orchestrates
+    the simulation environment.
+
+    This class manages the global topology, handlesdrone
+    registration, and executes the turn-based logic for the entire fleet.
     """
     def __init__(self) -> None:
+        """
+        Initializes an empty flight network with
+        zone and adjacency records.
+        """
         self.zones: Dict[str, Zone] = {}
         self.adj: Dict[str, List[Connection]] = {}
         self.drones: List[Drone] = []
 
     def add_zone(self, zone: Zone) -> None:
+        """
+        Registers a new hub into the network's spatial registry.
+        """
         self.zones[zone.name] = zone
         if zone.name not in self.adj:
             self.adj[zone.name] = []
 
     def add_connection(self, zone_a: str, zone_b: str, capacity: int) -> None:
+        """
+        Establishes a bidirectional link between two hubs
+        with shared throughput limits.
+        """
         self.adj[zone_a].append(Connection(zone_b, capacity))
         self.adj[zone_b].append(Connection(zone_a, capacity))
 
@@ -57,14 +104,19 @@ class Graph():
                             start: str, end: str,
                             max_paths: int = 3) -> list[list[str]]:
         """
-        Encuentra varias rutas alternativas para distribuir a la flota.
+        Calculates alternative routes to maximize fleet distribution
+        and avoid bottlenecks.
+
+        This method uses a penalization strategy to force the discovery
+        of secondary paths, ensuring the fleet doesn't overwhelm a
+        single corridor.
         """
         all_paths: list[list[str]] = []
-        # Usamos un diccionario de penalizaciones temporales
+        # Use a dict for temporal penalties
         penalties: Dict[str, float] = {name: 1.0 for name in self.zones}
 
         for _ in range(max_paths):
-            # Ejecutamos Dijkstra pasando las penalizaciones actuales
+            # Execute Dijkstra with penalties
             path: list[str] = self.dijkstra_with_penalties(
                 start, end, penalties)
             if not path:
@@ -72,11 +124,11 @@ class Graph():
 
             all_paths.append(path)
 
-            # PENALIZACIÓN: Subimos el coste de las zonas usadas para que la
-            # siguiente búsqueda prefiera caminos nuevos.
+            # Penalty: grow up restrictions for Dijkstra
+            # choose another solution
             for node in path:
                 if node != start and node != end:
-                    penalties[node] += 5.0  # Un coste alto para forzar desvíos
+                    penalties[node] += 5.0
 
         return all_paths
 
@@ -84,28 +136,36 @@ class Graph():
                                paths: list[list[str]],
                                start_node: str) -> None:
         """
-        Reparte los drones entre las rutas disponibles de forma equilibrada.
+        Strategically distributes drones across discovered
+        routes using a Round Robin approach.
         """
         for i, drone in enumerate(drones):
-            # Reparto cíclico (Round Robin) - simple y efectivo para empezar
             path_index = i % len(paths)
-            # Le damos al dron su hoja de ruta (quitando el nodo de inicio)
+            # Give each drone his roadap
             drone.route = paths[path_index][1:]
             drone.current_zone = start_node
             drone.state = "idle"
 
     def get_link_capacity(self, zone_a: str, zone_b: str) -> int:
-        """Busca la capacidad máxima de la conexión entre dos zonas."""
+        """
+        Retrieves the maximum throughput allowed between
+        two specific hubs.
+        """
         for conn in self.adj.get(zone_a, []):
             if conn.target_zone == zone_b:
                 return conn.max_capacity
-        return 1  # Capacidad por defecto
+        return 1
 
     def dijkstra_with_penalties(self, start: str, end: str,
                                 penalties: Dict[str, float]
                                 ) -> list[str]:
-        """Dijkstra que considera el tipo de zona
-        y las penalizaciones de tráfico."""
+        """
+        Calculates the optimal path considering zone types,
+        costs, and dynamic congestion penalties.
+
+        This advanced pathfinding logic balances speed and network health by
+        weighting priority zones and restricted airspaces differently.
+        """
         distances: Dict[str, float] = {
             name: float('inf') for name in self.zones}
         distances[start] = 0
@@ -125,14 +185,14 @@ class Graph():
                 if not neighbor.is_accesible():
                     continue
 
-                # Coste base por tipo de zona
+                # Cost depends zone
                 base_cost = 1.0
                 if neighbor.type == TypeZone.priority:
                     base_cost = 0.5
                 elif neighbor.type == TypeZone.restricted:
                     base_cost = 2.0
 
-                # Multiplicamos por la penalización de 'ruta ya usada'
+                # Multiply penalties
                 cost = base_cost * penalties[neighbor.name]
                 new_dist = curr_dist + cost
 

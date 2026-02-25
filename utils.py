@@ -4,7 +4,19 @@ from typing import Dict, Tuple
 
 
 class Colors():
+    """
+    Centralized utility for managing visual aesthetics
+    across CLI and GUI interfaces.
+
+    This class handles the mapping of color names to ANSI
+    escape sequences for high-readability terminal output,
+    as well as RGB tuples for Pygame rendering.
+    """
     def __init__(self) -> None:
+        """
+        Initializes the color registries for both terminal
+        and graphical environments.
+        """
         self.colors_ascii: Dict[str, str] = {
             "red": "\033[91m",
             "crimson": "\u001b[38;5;161m",
@@ -47,8 +59,14 @@ class Colors():
         }
 
     def get_rgb(self, color_name: str) -> Tuple[int, int, int]:
+        """
+        Retrieves the RGB tuple for a given color name,
+        including dynamic effects.
+
+        Supports procedural generation for special keywords like 'rainbow',
+        providing time-based color shifts for visual feedback.
+        """
         if color_name.lower() == "rainbow":
-            # Rainbow effect
             t = time.time() * 3
             r = int(math.sin(t) * 127 + 128)
             g = int(math.sin(t + 2) * 127 + 128)
@@ -58,8 +76,13 @@ class Colors():
         return self.rgb.get(color_name.lower(), (255, 255, 255))
 
     def color_text(self, text: str, color_name: str) -> str:
+        """
+        Wraps a string with ANSI escape codes for stylized terminal telemetry.
+
+        Implements per-character formatting for complex effects like 'rainbow'
+        to enhance the visibility of drone movements in the CLI.
+        """
         if color_name.lower() == "rainbow":
-            # Aplicamos un color distinto a cada letra
             rainbow_colors = [
                 "\033[91m", "\033[93m", "\033[92m",
                 "\033[96m", "\033[94m", "\033[95m"]
