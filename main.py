@@ -47,7 +47,7 @@ def main() -> None:
     running: bool = True
     last_update: int = pygame.time.get_ticks()
     update_delay: int = 600
-    # turn_counter = 0
+    turn_counter = 0
 
     while running and sim.drones_delivered < sim.nb_drones:
         for event in pygame.event.get():
@@ -63,7 +63,7 @@ def main() -> None:
             turn_movements: list[str] = []
 
             if moves:
-                # turn_counter += 1
+                turn_counter += 1
                 for drone, target in moves:
                     zone_obj: Zone = sim.graph.zones[target]
                     zone_color: str = zone_obj.color
@@ -95,6 +95,7 @@ def main() -> None:
             last_update = now
 
         visualizer.run_step()
+    print(f"Turns: {turn_counter}")
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
