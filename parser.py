@@ -137,7 +137,8 @@ class Parser():
             max_drones=int(meta.get("max_drones", 1)),
             real_drones=0
         )
-
+        if new_zone.max_drones <= 0:
+            self._error("Max drones must be greater than 0", line_num)
         self.graph.add_zone(new_zone)
 
         if prefix == "start_hub":
